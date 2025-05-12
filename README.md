@@ -1,5 +1,3 @@
-# Desafio-Metaheuristica-Edital-Smart-Job
-
 # Algoritmo Genetico Hibrido para Job Shop Scheduling
 
 Este projeto implementa um algoritmo genetico combinado com Busca Tabu para resolver problemas de escalonamento em ambientes de producao (Job Shop Scheduling). O objetivo e encontrar a sequencia de operacoes que minimize o **makespan** (tempo total de conclusao).
@@ -65,5 +63,6 @@ Siga as instrucoes no terminal para inserir os dados. Apos a execucao, verifique
 
 1. Goldberg, D. E. (1989). *Genetic Algorithms in Search, Optimization, and Machine Learning*.
 2. Mitchell, M. (1998). *An Introduction to Genetic Algorithms*.
-3. Gonçalves, J. F., & Resende, M. G. C. (2005). Hybrid GA-Tabu Search for Job Shop Scheduling.
+3. Gonçalves, J. F., & Resende, M. G. C. (2005). *Hybrid GA-Tabu Search for Job Shop Scheduling*.
 4. Glover, F., & Laguna, M. (1997). *Tabu Search*.
+5. Eiben, Á. E., Hinterding, R., & Michalewicz, Z. (1999). *Parameter Control in Evolutionary Algorithms*.

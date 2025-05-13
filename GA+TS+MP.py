@@ -19,8 +19,14 @@ def ler_entrada_interativa():
     return maquinas, num_jobs, job_machines, job_durations
 
 #PARAMETROS DO ALGORITMO
-TAMANHO_POPULACAO=90 #Quantidade de solucoes na populacao
+'''TAMANHO_POPULACAO=90 #Quantidade de solucoes na populacao
 GERACOES=200 #Quantidade de iteracoes do algoritmo
+TAXA_MUTACAO=0.2 #Chance de uma solucao sofrer mutacao
+FREQUENCIA_TABU=3 #A cada quantas geracoes aplica busca tabu
+TOP_REFINAMENTO=0.1 #Porcentagem das melhores solucoes para refinamento'''
+
+TAMANHO_POPULACAO=90 #Quantidade de solucoes na populacao
+GERACOES=100 #Quantidade de iteracoes do algoritmo
 TAXA_MUTACAO=0.2 #Chance de uma solucao sofrer mutacao
 FREQUENCIA_TABU=3 #A cada quantas geracoes aplica busca tabu
 TOP_REFINAMENTO=0.1 #Porcentagem das melhores solucoes para refinamento

@@ -86,6 +86,11 @@ Siga as instruções no terminal para inserir os dados.
  - Elitismo: Preserva as melhores soluções entre gerações
  - Processamento Eficiente: Calcula makespan em O(n) para cada solução
 
+## Vantagens da Abordagem
+ - Tabu como Global: Escape eficiente de ótimos locais
+ - GA como Local: Exploração direcionada de áreas promissoras
+ - Sinergia: Combina velocidade da Tabu com precisão do GA
+
 ## Referências
 1. Glover, F., & Laguna, M. (1997). *Tabu Search*  
 2. Goldberg, D. E. (1989). *Genetic Algorithms in Search, Optimization, and Machine Learning*  

@@ -1,212 +1,239 @@
 import random
-import matplotlib.pyplot as plt # type: ignore
+import matplotlib.pyplot as plt
 from collections import defaultdict, deque
+from matplotlib.patches import Patch
 from multiprocessing import Pool, cpu_count
 import time
 
-#FUNCAO PARA LER DADOS DO USUARIO
-def ler_entrada_interativa():
-    print("Digite a quantidade de maquinas e trabalhos:")
-    maquinas, num_jobs=map(int, input().strip().split())
-    job_machines=[]
-    job_durations=[]
-    #Para cada job, pegar maquinas e tempos de operacao
-    for i in range(num_jobs):
-        print(f"Job {i}:")
-        dados=list(map(int, input().strip().split()))
-        job_machines.append(dados[::2])  #Maquinas usadas nas operacoes
-        job_durations.append(dados[1::2])  #Tempos de cada operacao
-    return maquinas, num_jobs, job_machines, job_durations
+#FUNÇÕES AUXILIARES
+#verificamos se a ordem das operações de cada job é respeitada no indivíduo, ou seja respeitados a ordem inter de cada job
+def respeita_ordem(individuo, trabalhos):
+    posicoes = defaultdict(list)
+    for idx, job_id in enumerate(individuo):
+        posicoes[job_id].append(idx)
+    return all(posicoes[job_id]==sorted(posicoes[job_id]) for job_id in posicoes)
 
-#PARAMETROS DO ALGORITMO
-'''TAMANHO_POPULACAO=90 #Quantidade de solucoes na populacao
-GERACOES=200 #Quantidade de iteracoes do algoritmo
-TAXA_MUTACAO=0.2 #Chance de uma solucao sofrer mutacao
-FREQUENCIA_TABU=3 #A cada quantas geracoes aplica busca tabu
-TOP_REFINAMENTO=0.1 #Porcentagem das melhores solucoes para refinamento'''
+#FUNÇÕES DE AVALIAÇÃO
+#wraper para avaliação paralela do makespan
+def avaliar_individuo_mp(args):
+    individuo, trabalhos, maquinas=args
+    return calculo_tempo(individuo, trabalhos, maquinas)
 
-TAMANHO_POPULACAO=90 #Quantidade de solucoes na populacao
-GERACOES=100 #Quantidade de iteracoes do algoritmo
-TAXA_MUTACAO=0.2 #Chance de uma solucao sofrer mutacao
-FREQUENCIA_TABU=3 #A cada quantas geracoes aplica busca tabu
-TOP_REFINAMENTO=0.1 #Porcentagem das melhores solucoes para refinamento
+#ALGORITMO GENÉTICO
+#Geramos a população inicial de n indivíduos válidos
+def criar_populacao(n, trabalhos):
+    return [gerar_individuo(trabalhos) for _ in range(n)]
 
-#FUNCOES PARA MANIPULAR POPULACAO
-def avaliar_wrapper(args):
-    return avaliar_individuo(*args)
+#avaliamos o makespan de um indivíduo
+def avaliar_individuo(individuo, trabalhos, maquinas):
+    return calculo_tempo(individuo, trabalhos, maquinas)
 
-def busca_tabu_wrapper(args):
-    return busca_tabu(*args)
+#crossover OX (Order Crossover) adaptado para restrições de ordem
+def crossover(p1, p2, trabalhos):
+    count_max={j: len(ops) for j, ops in enumerate(trabalhos)}
+    count=defaultdict(int)
+    size=len(p1)
+    a, b=sorted(random.sample(range(size), 2))
+    meio=p1[a:b]
+    for j in meio:
+        count[j]+=1
+    resto=[]
+    for j in p2:
+        if count[j]<count_max[j]:
+            resto.append(j)
+            count[j]+=1
+    filho=resto[:a]+meio + resto[a:]
+    return filho if respeita_ordem(filho, trabalhos) else p1
 
-def gerar_individuo_valido(job_machines):
-    #Cria uma sequencia valida de operacoes respeitando a ordem dos jobs
-    operacoes_pendentes=[(j,0) for j in range(len(job_machines))]
+#mutação por troca de posições que mantém a validade
+def mutacao(ind):
+    for _ in range(10): #tenta no máximo 10 trocas aleatórias
+        i, j=sorted(random.sample(range(len(ind)), 2))
+        novo=ind[:]
+        novo[i], novo[j]=novo[j], novo[i]
+        if respeita_ordem(novo, trabalhos):
+            return novo
+    return ind #se não entrar troca valida, ele recua para o indice anterior(atual) 
+
+#Algoritmo genético local para refinamento
+def ga_local(individuo, trabalhos, maquinas, geracoes=30, tam_pop=10):
+    populacao=[individuo] + [mutacao(individuo) for _ in range(tam_pop-1)]
+    for _ in range(geracoes):
+        with Pool(processes=cpu_count()) as pool:
+            args=[(ind, trabalhos, maquinas) for ind in populacao]
+            tempos=pool.map(avaliar_individuo_mp, args)
+        populacao=[ind for _, ind in sorted(zip(tempos, populacao))]
+        nova=populacao[:2] #Pega os dois melhores (elitismo), para sempre pegar os melhores resultados possiveis
+        while len(nova)<tam_pop:
+            p1, p2=random.sample(populacao[:5], 2) #Seleção dos top 5, queremos refinar apenas os melhores
+            f=crossover(p1, p2, trabalhos)
+            if random.random()<0.5: #50% de chance de mutação, utilizamos isso para tentar manter a diversidade
+                f=mutacao(f)
+            nova.append(f)
+        populacao=nova
+    return min(populacao, key=lambda ind: calcular_makespan(ind, trabalhos, maquinas))
+
+#BUSCA TABU 
+#Geramos um indivíduo inicial válido com operações aleatórias
+def gerar_individuo(trabalhos):
     individuo=[]
-    while operacoes_pendentes:
-        #Escolhe aleatoriamente uma operacao pendente
-        job_id, op_idx=random.choice(operacoes_pendentes)
-        individuo.append((job_id, op_idx))
-        operacoes_pendentes.remove((job_id, op_idx))
-        #Adiciona proxima operacao do mesmo job se existir
-        if op_idx+1<len(job_machines[job_id]):
-            operacoes_pendentes.append((job_id, op_idx+1))
+    for job_id, job in enumerate(trabalhos):
+        individuo+=[job_id]*len(job) #Cria lista de operações por job
+    random.shuffle(individuo)
+    while not respeita_ordem(individuo, trabalhos): #verificar se respeitamos a ordem interna
+        random.shuffle(individuo)
     return individuo
 
-def criar_populacao(n, job_machines):
-    #Gera uma populacao inicial de n individuos validos
-    return [gerar_individuo_valido(job_machines) for _ in range(n)]
+#Calcula o makespan de uma solução (tempo total de uma determianda ordem)
+def calculo_tempo(individuo, jobs, numero_maquinas):
+    indice_atual=[0]*len(jobs)
+    tempo_maquina=[0]*numero_maquinas
+    fim_job=[0]*len(jobs)
+    for job_id in individuo:
+        i=indice_atual[job_id]
+        maquina, duracao=jobs[job_id][i]
+        inicio=max(tempo_maquina[maquina], fim_job[job_id])
+        fim=inicio + duracao
+        tempo_maquina[maquina]=fim
+        fim_job[job_id]=fim
+        indice_atual[job_id]+=1
+    return max(fim_job)
+calcular_makespan=calculo_tempo 
 
-#FUNCOES PARA AVALIAR SOLUCOES
-def avaliar_individuo(individuo, job_machines, job_durations, num_maquinas):
-    #Calcula o makespan (tempo total) de uma solucao
-    tempos_maquinas=[0]*num_maquinas
-    tempos_jobs=[0]*len(job_machines)
-    for job_id, op_idx in individuo:
-        maquina=job_machines[job_id][op_idx]
-        duracao=job_durations[job_id][op_idx]
-        #Calcula inicio considerando disponibilidade da maquina e do job
-        inicio=max(tempos_maquinas[maquina], tempos_jobs[job_id])
-        fim=inicio+duracao
-        #Atualiza os tempos
-        tempos_maquinas[maquina]=fim
-        tempos_jobs[job_id]=fim
-    #O makespan e o maior tempo de conclusao entre todos os jobs
-    return max(tempos_jobs)
-
-#OPERADORES GENETICOS
-def crossover(pai1, pai2):
-    #Combina duas solucoes para criar um filho
-    ponto1, ponto2 = sorted(random.sample(range(len(pai1)), 2))
-    parte_pai1=pai1[ponto1:ponto2]
-    parte_pai2=[op for op in pai2 if op not in parte_pai1]
-    return parte_pai2[:ponto1]+parte_pai1+parte_pai2[ponto1:]
-
-def mutacao(individuo):
-    #Troca duas operacoes de lugar se nao quebrar a ordem do job
-    for _ in range(10): #Tenta no maximo 10 vezes
-        i,j=sorted(random.sample(range(len(individuo)), 2))
-        a,b=individuo[i], individuo[j]
-        #Nao permite trocar operacoes do mesmo job fora de ordem
-        if a[0]==b[0] and abs(a[1]-b[1])!=1:
+#Geramos vizinhos válidos trocando operações na mesma máquina
+def gerar_vizinhos(agenda_atual, trabalhos):
+    vizinhos=[]
+    maquina_por_posicao=[]
+    contagem_operacoes_trabalho=defaultdict(int)
+    #Mapeia uma determinada máquina para cada posição na agenda
+    for posicao, id_trabalho in enumerate(agenda_atual):
+        indice_operacao=contagem_operacoes_trabalho[id_trabalho]
+        maquina=trabalhos[id_trabalho][indice_operacao][0]
+        maquina_por_posicao.append(maquina)
+        contagem_operacoes_trabalho[id_trabalho]+=1
+    #Agrupa posições por máquina
+    grupos_maquina=defaultdict(list)
+    for posicao, maquina in enumerate(maquina_por_posicao):
+        grupos_maquina[maquina].append(posicao)
+    #Gera trocas entre operações da mesma máquina (testar combinações diferentes)
+    for maquina, posicoes in grupos_maquina.items():
+        if len(posicoes)<2:
             continue
-        novo=individuo.copy()
-        novo[i], novo[j]=novo[j], novo[i]
-        return novo
-    return individuo #Se nao conseguir, retorna original
+        for i in range(len(posicoes)):
+            for j in range(i + 1, len(posicoes)):
+                pos_I=posicoes[i]
+                pos_J=posicoes[j]
+                #Só troca se forem jobs diferentes e mantiver a validade(ordem interna)
+                if agenda_atual[pos_I]!=agenda_atual[pos_J]:
+                    nova_agenda=agenda_atual.copy()
+                    nova_agenda[pos_I], nova_agenda[pos_J]=nova_agenda[pos_J], nova_agenda[pos_I]
+                    if respeita_ordem(nova_agenda, trabalhos):
+                        vizinhos.append((nova_agenda, (pos_I, pos_J)))
+    return vizinhos
 
-#BUSCA TABU PARA REFINAMENTO LOCAL
-def busca_tabu(solucao, job_machines, job_durations, num_maquinas, max_iter=30, tabu_size=7):
-    #Melhora uma solucao explorando vizinhanca
-    melhor_solucao=solucao.copy()
-    melhor_tempo=avaliar_individuo(melhor_solucao, job_machines, job_durations, num_maquinas)
-    lista_tabu=deque(maxlen=tabu_size) #Memoriza movimentos recentes
-    for _ in range(max_iter):
-        #Gera vizinhos trocando operacoes adjacentes
-        vizinhos=[]
-        for i in range(len(solucao)-1):
-            #Nao permite trocas invalidas no mesmo job
-            if solucao[i][0]==solucao[i+1][0] and solucao[i][1]>solucao[i+1][1]:
-                continue 
-            vizinho=solucao.copy()
-            vizinho[i], vizinho[i+1]=vizinho[i+1], vizinho[i]
-            vizinhos.append((vizinho, (i,i+1)))
-        #Avalia vizinhos nao tabu
-        candidatos=[]
-        for viz, movimento in vizinhos:
-            if movimento in lista_tabu:
-                continue
-            tempo=avaliar_individuo(viz, job_machines, job_durations, num_maquinas)
-            candidatos.append((tempo, viz, movimento))
-        if not candidatos:
-            break
-        #Seleciona melhor vizinho
-        melhor_candidato=sorted(candidatos)[0]
-        solucao=melhor_candidato[1]
-        lista_tabu.append(melhor_candidato[2])
-        #Atualiza melhor solucao encontrada
-        if melhor_candidato[0]<melhor_tempo:
-            melhor_solucao=solucao.copy()
-            melhor_tempo=melhor_candidato[0]
+#Implementação principal da Busca Tabu
+def busca_tabu(solucao_inicial, trabalhos, numero_maquinas, max_iteracoes=300, tamanho_tabu=15):
+    melhor_solucao=solucao_inicial.copy() #Melhor solução global
+    solucao_atual=solucao_inicial.copy()  #Solução sendo explorada
+    melhor_makespan=calculo_tempo(melhor_solucao, trabalhos, numero_maquinas)
+    lista_tabu=deque(maxlen=tamanho_tabu) #Lista fifo de movimentos proibidos
+    for _ in range(max_iteracoes):
+        vizinhos=gerar_vizinhos(solucao_atual, trabalhos) #Gerar vizinhos válidos
+        melhor_vizinho=None
+        melhor_makespan_vizinho=float('inf')
+        melhor_troca=None
+        #Avaliar todos os vizinhos que não estão na lista Tabu
+        for vizinho, troca in vizinhos:
+            if troca in lista_tabu or (troca[1], troca[0]) in lista_tabu:
+                continue  #Ignora movimentos na lista tabu
+            makespan_vizinho=calculo_tempo(vizinho, trabalhos, numero_maquinas)
+            if makespan_vizinho<melhor_makespan_vizinho:
+                melhor_vizinho=vizinho
+                melhor_makespan_vizinho=makespan_vizinho
+                melhor_troca=troca
+        if melhor_vizinho:
+            #Atualiza solução atual (melhor solução atual)
+            solucao_atual=melhor_vizinho
+            #Atualiza melhor solução global se necessário
+            if melhor_makespan_vizinho<melhor_makespan:
+                melhor_solucao=melhor_vizinho.copy()
+                melhor_makespan=melhor_makespan_vizinho
+            #Adiciona movimento à lista tabu(movimentos proibidos)
+            lista_tabu.append(melhor_troca)
     return melhor_solucao
 
-#EXECUCAO PRINCIPAL
+#EXECUÇÃO PRINCIPAL
 if __name__=='__main__':
     inicio=time.time()
-    #Ler dados do problema
-    maquinas, num_jobs, job_machines, job_durations=ler_entrada_interativa()
-    #Criar populacao inicial
-    populacao=criar_populacao(TAMANHO_POPULACAO, job_machines)
-    
-    #Configurar processamento paralelo
-    with Pool(processes=cpu_count()) as pool:
-        #Loop principal das geracoes
-        for geracao in range(1, GERACOES+1):
-            #Avaliar todas as solucoes em paralelo
-            args=[(ind, job_machines, job_durations, maquinas) for ind in populacao]
-            tempos=pool.map(avaliar_wrapper, args)
-            #Ordenar populacao pelo makespan
-            populacao=[ind for _,ind in sorted(zip(tempos, populacao))]
-            #Manter as 2 melhores solucoes (elitismo)
-            nova_geracao=populacao[:2]
-            # Preencher nova geracao com cruzamentos
-            while len(nova_geracao)<TAMANHO_POPULACAO:
-                #Selecionar pais entre os 15 melhores
-                pai1, pai2=random.sample(populacao[:15], 2)
-                filho=crossover(pai1, pai2)
-                #Aplicar mutacao com certa probabilidade
-                if random.random()<TAXA_MUTACAO:
-                    filho=mutacao(filho)
-                nova_geracao.append(filho)
-            #A cada X geracoes, aplicar busca tabu nas melhores solucoes
-            if geracao%FREQUENCIA_TABU==0:
-                quantidade=max(1, int(TAMANHO_POPULACAO*TOP_REFINAMENTO))
-                melhores=nova_geracao[:quantidade]
-                args=[(ind, job_machines, job_durations, maquinas) for ind in melhores]
-                refinados=pool.map(busca_tabu_wrapper, args)
-                nova_geracao[:quantidade]=refinados
-            populacao=nova_geracao
-            print(f"Geracao {geracao}: Melhor makespan = {min(tempos)}")
+    trabalho, maquinas=map(int, input("Digite a quantidade de maquinas e trabalhos: ").split())
+    trabalhos=[]
+    for i in range(trabalho):
+        linha=input(f"Job {i}: ")
+        numeros=list(map(int, linha.strip().split()))
+        job = [(numeros[j], numeros[j+1]) for j in range(0, len(numeros), 2)]
+        trabalhos.append(job)
+    #Fluxo principal (ordem de execução)
+    solucao_inicial=gerar_individuo(trabalhos)
+    solucao_tabu=busca_tabu(solucao_inicial, trabalhos, maquinas)
+    solucao_final=ga_local(solucao_tabu, trabalhos, maquinas)
+    fim=time.time()
 
-    #SALVAR RESULTADOS EM ARQUIVO E GERAR GRAFICO
-    with open("resultado_final.txt", "w") as arquivo:
-        #Encontrar melhor solucao final
-        melhor=min(populacao, key=lambda x: avaliar_individuo(x, job_machines, job_durations, maquinas))
-        makespan=avaliar_individuo(melhor, job_machines, job_durations, maquinas)
-        #Escrever detalhes da solucao
-        arquivo.write(f"Melhor sequencia:\n{melhor}\n\n")
-        arquivo.write(f"Makespan final: {makespan}\n")
-        arquivo.write(f"Tempo total: {time.time()-inicio:.2f}s\n\n")
-        #Calcular cronograma por maquina
-        tempos_maquinas=[0]*maquinas
-        tempos_jobs=[0]*num_jobs
-        alocacao=defaultdict(list)
-        for job_id, op_idx in melhor:
-            maquina=job_machines[job_id][op_idx]
-            duracao=job_durations[job_id][op_idx]
-            inicio_op=max(tempos_maquinas[maquina], tempos_jobs[job_id])
-            fim_op=inicio_op+duracao
-            alocacao[maquina].append( (inicio_op, fim_op, f"J{job_id}-O{op_idx}") )
-            tempos_maquinas[maquina]=fim_op
-            tempos_jobs[job_id]=fim_op
-        #Gerar grafico de Gantt
-        fig, ax=plt.subplots(figsize=(12,6))
-        cores=plt.cm.tab20.colors
-        for maq in range(maquinas):
-            for inicio, fim, nome in sorted(alocacao[maq], key=lambda x: x[0]):
-                ax.barh(maq, fim-inicio, left=inicio, color=cores[maq%len(cores)], edgecolor='black')
-                ax.text( (inicio+fim)/2, maq, nome, ha='center', va='center', fontsize=8)
-        ax.set_yticks(range(maquinas))
-        ax.set_yticklabels([f"Maquina {i}" for i in range(maquinas)])
-        ax.set_xlabel("Tempo")
-        ax.set_title("Cronograma de Execucao")
-        plt.tight_layout()
-        plt.savefig("grafico_gantt.png")
-        plt.close()
-        #Escrever detalhes no arquivo
+    #PROCESSAMENTO DA SOLUÇÃO
+    #Inicializa variáveis para processamento
+    tempos_maquinas=[0]*maquinas
+    tempos_jobs=[0]*trabalho
+    indice_op=[0]*trabalho #Índice único para controle das operações
+    alocacao=defaultdict(list)
+    #Popula alocacao com os dados reais
+    for job_id in solucao_final:
+        #Verificação de segurança
+        op_idx=indice_op[job_id]
+        maquina, duracao = trabalhos[job_id][op_idx]
+        inicio=max(tempos_maquinas[maquina], tempos_jobs[job_id])
+        fim=inicio+duracao
+        alocacao[maquina].append((inicio, fim, f"J{job_id}-O{op_idx}"))
+        tempos_maquinas[maquina]=fim
+        tempos_jobs[job_id]=fim
+        indice_op[job_id]+=1
+    #Saída dos resultados
+    print("\nMelhor makespan (GA + Tabu):", calculo_tempo(solucao_final, trabalhos, maquinas))
+    print("Sequencia final:", solucao_final)
+    print(f"Tempo total de execução: {fim-inicio:.2f} segundos")
+
+    #ESCRITA EM ARQUIVO
+    with open("resultado_final.txt", "w", encoding='utf-8') as arquivo:
+        melhor_sequencia=[]
+        indice_temp=[0]*trabalho 
+        for job_id in solucao_final:
+            op_idx=indice_temp[job_id]
+            melhor_sequencia.append((job_id, op_idx))
+            indice_temp[job_id]+=1
+        arquivo.write("Melhor sequencia:\n")
+        arquivo.write(str(melhor_sequencia) + "\n\n")
+        arquivo.write(f"Makespan final: {calculo_tempo(solucao_final, trabalhos, maquinas)}\n")
+        arquivo.write(f"Tempo total: {fim - inicio:.2f}s\n\n")
+        
         arquivo.write("Detalhes por maquina:\n")
         for maq in range(maquinas):
-            arquivo.write(f"Maquina {maq}:\n")
-            for inicio, fim, nome in sorted(alocacao[maq], key=lambda x: x[0]):
+            arquivo.write(f"\nMaquina {maq}:\n")
+            operacoes=sorted(alocacao.get(maq, []), key=lambda x: x[0])
+            for inicio, fim, nome in operacoes:
                 arquivo.write(f"  {nome}: {inicio} - {fim}\n")
-            arquivo.write("\n")
-    print("Processo concluido! Dados salvos em resultado_final.txt e grafico_gantt.png")
+
+    #GERADOR DE GRÁFICO GANTT
+    fig, ax=plt.subplots(figsize=(12, 6))
+    cores=plt.cm.tab20.colors
+    #Usa os dados já processados em alocacao
+    for maq in range(maquinas):
+        for inicio, fim, nome in sorted(alocacao[maq], key=lambda x: x[0]):
+            job_id = int(nome.split('J')[1].split('-')[0])
+            ax.barh(maq, fim - inicio, left=inicio, color=cores[job_id % len(cores)], edgecolor='black')
+            ax.text((inicio + fim)/2, maq, nome, ha='center', va='center', fontsize=8)
+    
+    ax.set_yticks(range(maquinas))
+    ax.set_yticklabels([f"Maquina {i}" for i in range(maquinas)])
+    ax.set_xlabel("Tempo")
+    ax.set_title("Grafico de Gantt - GA como busca local sobre Tabu")
+    plt.tight_layout()
+    plt.savefig("grafico_gantt_final.png")
+    plt.show()

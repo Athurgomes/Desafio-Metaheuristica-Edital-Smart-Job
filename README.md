@@ -1,49 +1,49 @@
-# Algoritmo Genetico Hibrido para Job Shop Scheduling
+# Algoritmo Genético Híbrido com Busca Tabu para Job Shop Scheduling
 
-Este projeto implementa um algoritmo genetico combinado com Busca Tabu para resolver problemas de escalonamento em ambientes de producao (Job Shop Scheduling). O objetivo e encontrar a sequencia de operacoes que minimize o **makespan** (tempo total de conclusao).
+Este projeto implementa um algoritmo genético combinado com Busca Tabu para resolver problemas de escalonamento em ambientes de produção (Job Shop Scheduling). O objetivo é encontrar a sequência de operações que minimize o **makespan** (tempo total de conclusão).
 
-## Como Funciona
+## Funcionamento do Algoritmo
 
-### Estrutura do Codigo
+### Componentes Principais
+- **Algoritmo Genético (GA)**: Gera soluções candidatas e evolui através de seleção, crossover e mutação.
+- **Busca Tabu**: Refina soluções periodicamente para evitar mínimos locais.
+- **Multiprocessamento**: Acelera avaliações usando todos os núcleos do processador.
+- **Visualização**: Gera gráfico de Gantt interativo.
 
-- **Algoritmo Genetico (AG)**: Gera solucoes candidatas (individuos) e as evolui ao longo de geracoes.
-- **Busca Tabu**: Refina periodicamente as melhores solucoes para escapar de otimos locais.
-- **Multiprocessamento**: Acelera a avaliacao das solucoes usando todos os nucleos do processador.
-- **Visualizacao**: Gera um grafico de Gantt para mostrar o cronograma das operacoes.
+### Fluxo de Execução
+1. **Entrada de Dados**: O usuário informa o número de máquinas, jobs e as operações de cada job.
+2. **Inicialização**: Cria uma população inicial de soluções válidas.
+3. **Avaliação**: Calcula o makespan de cada solução.
+4. **Seleção e Cruzamento**: Combina as melhores soluções para gerar descendentes.
+5. **Mutação**: Introduz diversidade genética nas soluções.
+6. **Busca Tabu**: Refinamento local periódico nas soluções elite.
+7. **Saída**: Gera arquivo com a sequência ótima e gráfico de Gantt.
 
-### Fluxo Principal
+## Parâmetros de Configuração
+| Parâmetro           | Valor Padrão      | Descrição                                      |
+|---------------------|-------------------|------------------------------------------------|
+| `Gerações (GA)`     | 30                | Número de iterações do Algoritmo Genético      |
+| `TAM_POPULAÇÃO`     | 10                | Quantidade de soluções por geração             |
+| `TAXA_MUTACAO`      | 0.5 (50%)         | Probabilidade de mutação em cada solução       |
+| `ITERACOES_TABU`    | 300               | Máximo de iterações da Busca Tabu              |
+| `TAMANHO_TABU`      | 15                | Número máximo de movimentos proibidos          |
 
-1. **Leitura dos Dados**: O usuario informa o numero de maquinas, jobs e as operacoes de cada job.
-2. **Inicializacao**: Cria uma populacao inicial de solucoes validas.
-3. **Avaliacao**: Calcula o makespan de cada solucao.
-4. **Selecao e Cruzamento**: Combina as melhores solucoes para criar uma nova geracao.
-5. **Mutacao**: Introduz variabilidade nas solucoes.
-6. **Refinamento com Busca Tabu**: A cada X geracoes, aplica busca local nas melhores solucoes.
-7. **Resultados**: Salva a melhor solucao encontrada e gera um grafico de Gantt.
+**Explicação dos Parâmetros:**
+1. **Gerações (GA)**: Controla o número de ciclos evolutivos do algoritmo genético (`geracoes=30` em `ga_local()`)
+2. **TAM_POPULAÇÃO**: Define o tamanho da população em cada geração do GA (`tam_pop=10`)
+3. **TAXA_MUTACAO**: Probabilidade de aplicar mutação durante o crossover (`if random.random() < 0.5` no GA)
+4. **ITERACOES_TABU**: Número máximo de iterações na fase de Busca Tabu (`max_iteracoes=300`)
+5. **TAMANHO_TABU**: Capacidade da lista tabu para evitar ciclos (`tamanho_tabu=15`)
 
-## Parametros do Algoritmo
+## Instruções de Uso
 
-| Parametro           | Valor Padrao | Descricao                                      |
-|---------------------|--------------|------------------------------------------------|
-| TAMANHO_POPULACAO   | 90           | Quantidade de solucoes em cada geracao         |
-| GERACOES            | 200          | Numero total de iteracoes do algoritmo         |
-| TAXA_MUTACAO        | 0.2 (20%)    | Probabilidade de uma solucao sofrer mutacao    |
-| FREQUENCIA_TABU     | 3            | A cada 3 geracoes aplica busca tabu            |
-| TOP_REFINAMENTO     | 0.1 (10%)    | Porcentagem das melhores solucoes refinadas    |
+### Formato da Entrada
+Número_de_jobs Número_de_máquinas  
+Job_0: Máquina1 Duração1 Máquina2 Duração2 ...
+Job_1: Máquina1 Duração1 Máquina2 Duração2 ...
+...
 
-## Como Executar
-
-### Entrada de Dados
-Digite os dados interativamente no formato:
-
-Numero_de_maquinas Numero_de_jobs  
-Job_0: Maquina1 Duracao1 Maquina2 Duracao2 ...  
-Job_1: Maquina1 Duracao1 Maquina2 Duracao2 ...  
-...  
-
-
-Exemplo:
-instance abz6  
+**Exemplo para instância ABZ6 (10x10):**
 Adams, and Zawack 10x10 instance (Table 1, instance 6)  
 10 10  
 7 62 8 24 5 25 3 84 4 47 6 38 2 82 0 93 9 24 1 66  
@@ -57,21 +57,30 @@ Adams, and Zawack 10x10 instance (Table 1, instance 6)
 9 68 6 66 5 98 8 86 7 66 0 56 3 82 1 95 4 47 2 78  
 0 30 3 50 7 34 2 58 1 77 5 34 8 84 4 40 9 46 6 44  
 
+### Execução  
+python GA+TS+MP.py  
+Siga as instruções no terminal para inserir os dados.  
 
-### Saida Gerada
-Dois arquivos serao criados:
-1. **resultado_final.txt**: Contem a sequencia otima e o cronograma detalhado.
-2. **grafico_gantt.png**: Mostra a distribuicao das operacoes nas maquinas ao longo do tempo.
+### Saída Gerada
+1. **resultado_final.txt**:  
+   - Sequência ótima de operações em formato `(Job, Operação)`
+   - Makespan final e tempo de execução
+   - Cronograma detalhado por máquina
 
-### Execucao
-python GA_TS_MultiProcessamento.py
+2. **grafico_gantt_final.png**:  
+   Gráfico de Gantt mostrando a alocação temporal das operações nas máquinas.
 
-Siga as instrucoes no terminal para inserir os dados. Apos a execucao, verifique os arquivos gerados.
+![Exemplo de Gráfico de Gantt](grafico_gantt_final.png)
 
-## Referencias
+## Otimizações Chave
+ - Controle de Validade: Garante soluções viáveis durante operações genéticas
+ - Estratégia de Vizinhança: Gera movimentos válidos na Busca Tabu
+ - Elitismo: Preserva as melhores soluções entre gerações
+ - Processamento Eficiente: Calcula makespan em O(n) para cada solução
 
-1. Goldberg, D. E. (1989). *Genetic Algorithms in Search, Optimization, and Machine Learning*.
-2. Mitchell, M. (1998). *An Introduction to Genetic Algorithms*.
-3. Gonçalves, J. F., & Resende, M. G. C. (2005). *Hybrid GA-Tabu Search for Job Shop Scheduling*.
-4. Glover, F., & Laguna, M. (1997). *Tabu Search*.
+## Referências
+1. Glover, F., & Laguna, M. (1997). *Tabu Search*  
+2. Goldberg, D. E. (1989). *Genetic Algorithms in Search, Optimization, and Machine Learning*  
+3. Gonçalves, J. F., & Resende, M. G. C. (2005). *Hybrid GA-Tabu Search for Job Shop Scheduling*  
+4. Python Multiprocessing Documentation  
 5. Eiben, Á. E., Hinterding, R., & Michalewicz, Z. (1999). *Parameter Control in Evolutionary Algorithms*.

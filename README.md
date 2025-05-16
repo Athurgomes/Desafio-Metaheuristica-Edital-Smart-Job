@@ -1,4 +1,4 @@
-# Algoritmo Genético Híbrido com Busca Tabu para Job Shop Scheduling
+# Busca Tabu Híbrida com Algoritmo Genético para Job Shop Scheduling
 
 Este projeto implementa um algoritmo genético combinado com Busca Tabu para resolver problemas de escalonamento em ambientes de produção (Job Shop Scheduling). O objetivo é encontrar a sequência de operações que minimize o **makespan** (tempo total de conclusão).
 

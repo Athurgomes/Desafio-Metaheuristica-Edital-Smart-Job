@@ -4,20 +4,28 @@ Este projeto implementa um algoritmo genético combinado com Busca Tabu para res
 
 ## Funcionamento do Algoritmo
 
-### Componentes Principais
-- **Algoritmo Genético (GA)**: Gera soluções candidatas e evolui através de seleção, crossover e mutação.
-- **Busca Tabu**: Refina soluções periodicamente para evitar mínimos locais.
-- **Multiprocessamento**: Acelera avaliações usando todos os núcleos do processador.
-- **Visualização**: Gera gráfico de Gantt interativo.
+### Componentes Principais  
+- **Busca Tabu**: Exploração global inicial com prevenção de ciclos  
+- **Algoritmo Genético**: Refinamento local via evolução populacional  
+- **Paralelismo**: Aceleração massiva na avaliação de soluções  
+- **Gráfico de Gantt**: Representação visual do cronograma ótimo  
 
-### Fluxo de Execução
-1. **Entrada de Dados**: O usuário informa o número de máquinas, jobs e as operações de cada job.
-2. **Inicialização**: Cria uma população inicial de soluções válidas.
-3. **Avaliação**: Calcula o makespan de cada solução.
-4. **Seleção e Cruzamento**: Combina as melhores soluções para gerar descendentes.
-5. **Mutação**: Introduz diversidade genética nas soluções.
-6. **Busca Tabu**: Refinamento local periódico nas soluções elite.
-7. **Saída**: Gera arquivo com a sequência ótima e gráfico de Gantt.
+### Fluxo Principal de Execução
+1. **Geração Inicial**  
+   - Cria uma solução válida aleatória (`gerar_individuo()`)
+   - Exemplo: Sequência de operações que respeita a ordem dos jobs
+
+2. **Busca Tabu (Fase Global)**  
+   - Refina a solução inicial através de:
+     - 300 iterações de busca em vizinhança
+     - Movimentos proibidos armazenados por 15 iterações
+     - Aceitação estratégica de soluções piores
+
+3. **Algoritmo Genético (Fase Local)**  
+   - Aplica 30 gerações de evolução com:
+     - População de 10 indivíduos baseada na melhor solução Tabu
+     - Taxa de mutação efetiva de 50%
+     - Seleção por torneio entre top 5 soluções 
 
 ## Parâmetros de Configuração
 | Parâmetro           | Valor Padrão      | Descrição                                      |

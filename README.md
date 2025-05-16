@@ -92,8 +92,12 @@ Siga as instruções no terminal para inserir os dados.
  - Sinergia: Combina velocidade da Tabu com precisão do GA
 
 ## Referências
-1. Glover, F., & Laguna, M. (1997). *Tabu Search*  
-2. Goldberg, D. E. (1989). *Genetic Algorithms in Search, Optimization, and Machine Learning*  
-3. Gonçalves, J. F., & Resende, M. G. C. (2005). *Hybrid GA-Tabu Search for Job Shop Scheduling*  
-4. Python Multiprocessing Documentation  
-5. Eiben, Á. E., Hinterding, R., & Michalewicz, Z. (1999). *Parameter Control in Evolutionary Algorithms*.
+1. Eiben, Á. E., Hinterding, R., & Michalewicz, Z. (1999). Parameter Control in Evolutionary Algorithms. IEEE Transactions on Evolutionary Computation.  
+2. Gao, J., Sun, L., & Gen, M. (2007). A hybrid genetic algorithm for the job shop scheduling problem. Computers & Operations Research.  
+3. Gao, J., Sun, L., & Gen, M. (2008). An effective genetic algorithm for the flexible job-shop scheduling problem. Computers & Industrial Engineering.  
+4. Glover, F., & Laguna, M. (1997). Tabu Search.  
+5. Goldberg, D. E. (1989). Genetic Algorithms in Search, Optimization, and Machine Learning.  
+6. Gonçalves, J. F., & Resende, M. G. C. (2005). A hybrid genetic algorithm for the job shop scheduling problem. European Journal of Operational Research.  
+7. Mitchell, M. (1998). An Introduction to Genetic Algorithms. MIT Press.  
+8. Python Multiprocessing Documentation. Python Software Foundation.  
+9. Vaghefinezhad, S., & Wong, K. Y. (2012). A Genetic Algorithm Approach for Solving a Flexible Job Shop Scheduling Problem.  
